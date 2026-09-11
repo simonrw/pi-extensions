@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // Codex's account-wide usage endpoint, not session token usage.
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
@@ -26,9 +26,20 @@ export function weeklyStatus(payload: unknown): string {
 
 export default function(pi: ExtensionAPI) {
   let stop: (() => void) | undefined;
+  let cachedStatus: string | undefined;
+
+  function render(ctx: ExtensionContext) {
+    if (!ctx.hasUI) return;
+    const isOpenAI = ctx.model?.provider === "openai" || ctx.model?.provider === "openai-codex";
+    ctx.ui.setStatus("openai-weekly",
+      isOpenAI && cachedStatus ? ctx.ui.theme.fg("dim", cachedStatus) : undefined);
+  }
+
+  pi.on("model_select", (_event, ctx) => render(ctx));
 
   pi.on("session_start", (_event, ctx) => {
     stop?.();
+    cachedStatus = undefined;
     if (!ctx.hasUI) return;
 
     const controller = new AbortController();
@@ -66,7 +77,8 @@ export default function(pi: ExtensionAPI) {
         status = "OpenAI weekly unavailable";
       }
       if (controller.signal.aborted) return;
-      ctx.ui.setStatus("openai-weekly", status);
+      cachedStatus = status;
+      render(ctx);
       // Schedule after completion so requests never overlap.
       timer = setTimeout(() => void refresh(), REFRESH_MS);
       timer.unref();

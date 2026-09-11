@@ -1,6 +1,6 @@
 # OpenAI weekly limit
 
-Adds `OpenAI weekly [████████░░] 79% left` to pi's existing footer. Shows the account-wide Codex weekly allowance, not this session's token usage. Remains visible when switching models.
+Adds `OpenAI weekly [████████░░] 79% left` to pi's existing footer. Shows the account-wide Codex weekly allowance, not this session's token usage. Uses the footer's dim text color and is visible only for `openai` and `openai-codex` models. Switching providers updates visibility immediately without an extra request.
 
 Uses pi's `openai-codex` login, fetches on session start, then waits 60 seconds between requests. Requests time out after 10 seconds. Shutdown and reload cancel polling. No credentials means no indicator; failed requests or missing weekly limits show `OpenAI weekly unavailable`.
 

@@ -20,7 +20,11 @@ function setup(t, hasUI = true) {
   t.mock.method(globalThis, "clearTimeout", (timer) => cleared.push(timer));
   const ctx = {
     hasUI,
-    ui: { setStatus: (key, text) => statuses.push([key, text]) },
+    model: { provider: "openai-codex" },
+    ui: {
+      theme: { fg: (color, text) => { assert.equal(color, "dim"); return text; } },
+      setStatus: (key, text) => statuses.push([key, text]),
+    },
     modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: token } }) },
   };
   extension({ on: (event, handler) => { handlers[event] = handler; } });
@@ -88,6 +92,35 @@ test("shutdown aborts in-flight requests and prevents late status updates", asyn
   await setImmediate();
   assert.deepEqual(statuses, [["openai-weekly", undefined]]);
   assert.equal(timers.length, 0);
+});
+
+test("only shows for OpenAI models, including switches during a refresh", async (t) => {
+  const { handlers, ctx, statuses, timers } = setup(t);
+  let finish;
+  const request = t.mock.method(globalThis, "fetch", () => new Promise((resolve) => { finish = resolve; }));
+  handlers.session_start({}, ctx);
+  await setImmediate();
+
+  ctx.model = { provider: "anthropic" };
+  handlers.model_select({}, ctx);
+  assert.equal(statuses.at(-1)[1], undefined);
+  finish(Response.json(payload(21)));
+  await setImmediate();
+  assert.equal(statuses.at(-1)[1], undefined);
+
+  for (const provider of ["openai", "openai-codex"]) {
+    ctx.model = { provider };
+    handlers.model_select({}, ctx);
+    assert.equal(statuses.at(-1)[1], weeklyStatus(payload(21)));
+  }
+  for (const model of [{ provider: "google" }, undefined]) {
+    ctx.model = model;
+    handlers.model_select({}, ctx);
+    assert.equal(statuses.at(-1)[1], undefined);
+  }
+  assert.equal(request.mock.callCount(), 1);
+  assert.equal(timers.length, 1);
+  handlers.session_shutdown({}, ctx);
 });
 
 test("headless sessions do not resolve credentials or poll", async (t) => {
