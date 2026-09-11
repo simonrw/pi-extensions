@@ -15,5 +15,9 @@
     "extensions": [
       "./extensions"
     ]
+  },
+  "devDependencies": {
+    "typescript": "^6",
+    "typescript-language-server": "^6.0.0"
   }
 }
